@@ -1,38 +1,44 @@
 import json
 from http.server import BaseHTTPRequestHandler
 import urllib.parse
+import os
 
-# Load student data from the JSON file
+json_file_path = os.path.join(os.path.dirname(__file__), '../q-vercel-python.json')
+
 def load_data():
-    with open('q-vercel-python.json', 'r') as file:
-        data = json.load(file)
-    return data
+    try:
+        with open(json_file_path, 'r') as file:
+            data = json.load(file)
+        return data
+    except Exception as e:
+        return {"error": f"Failed to load data: {str(e)}"}
 
-# Handler class to process incoming requests
 class handler(BaseHTTPRequestHandler):
+    def do_OPTIONS(self):  # Handle CORS preflight requests
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
     def do_GET(self):
-        # Parse the query parameters
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+
         query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-
-        # Get 'name' parameters from the query string
         names = query.get('name', [])
-
-        # Load data from the JSON file
         data = load_data()
 
-        # Prepare the result dictionary
+        if "error" in data:
+            self.wfile.write(json.dumps(data).encode('utf-8'))
+            return
+
         result = {"marks": []}
         for name in names:
-            # Find the marks for each name
             for entry in data:
                 if entry["name"] == name:
                     result["marks"].append(entry["marks"])
 
-        # Send the response header
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')  # Enable CORS for any origin
-        self.end_headers()
-
-        # Send the JSON response
         self.wfile.write(json.dumps(result).encode('utf-8'))
